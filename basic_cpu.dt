@@ -1,0 +1,450 @@
+
+
+include "llvm/Target/Target.td"
+
+
+// Register - You should define one instance of this class for each register
+// in the target machine.  String n will become the "name" of the register.
+/* class Register<string n, list<string> altNames = []> */
+
+
+// メインの汎用レジスタを定義する
+// 32個の汎用レジスタを定義するのであればbit<x>はbit<5>で充分である。
+class MZ_Reg<bits<16> Enc, string n> : Register<n> {
+  let HWEncoding = Enc;
+  let Namespace = "MZ";
+}
+
+
+// サブレジスタを主レジスタのaliasとして定義する
+// 32個の汎用レジスタを定義するのであればbit<x>はbit<5>で充分である。
+class MZ_RegWithSubRegs<bits<16> Enc, string n, list<Register> subregs> : RegisterWithSubRegs<n, subregs> {
+  let HWEncoding = Enc;
+  let Namespace = "MZ";
+}
+
+
+//===----------------------------------------------------------------------===//
+//  Registers
+//===----------------------------------------------------------------------===//
+// 汎用レジスタGPRFを定義する32bitの256個で定義する
+let Namespace = "MZ" in {
+  foreach I = 0-255 in {
+    def R#I : MZ_Reg<I, "r"#I>, DwarfRegNum<[!add(I, 32)]>;
+  }
+
+  // PC register
+  def PC : Register<"pc">;
+
+}
+
+//===----------------------------------------------------------------------===//
+// Register Classes
+//===----------------------------------------------------------------------===//
+
+// RegisterClass - Now that all of the registers are defined, and aliases
+// between registers are defined, specify which registers belong to which
+// register classes.  This also defines the default allocation order of
+// registers by register allocators.
+//
+//class RegisterClass<string namespace, list<ValueType> regTypes, int alignment, dag regList, RegAltNameIndex idx = NoRegAltName>
+
+
+class GPR32Class<list<ValueType> regTypes> : RegisterClass
+<
+  "MZ",
+  regTypes,
+  32,
+  (add (sequence "R%i", 0, 255) )
+>;
+
+def GPR32 : GPR32Class<[i32]>;
+
+// Register Operands.
+
+class BasicAsmRegOperand : AsmOperandClass {
+  let ParserMethod = "parseAnyRegister";
+}
+
+def GPR32AsmOperand : BasicAsmRegOperand {
+  let Name = "GPR32AsmReg";
+  let PredicateMethod = "isGPRAsmReg";
+}
+
+def GPR32Opnd : RegisterOperand<GPR32> {
+  let ParserMatchClass = GPR32AsmOperand;
+}
+
+
+//===----------------------------------------------------------------------===//
+// Functional units across Basic_CPU chips sets. Based on GCC/Mips backend files.
+//===----------------------------------------------------------------------===//
+def ALU     : FuncUnit; // Arithmetic Logic Unit
+def LSU     : FuncUnit; // Load Store Unit
+def FPU     : FuncUnit; // Floating Point Unit
+
+
+//===----------------------------------------------------------------------===//
+//  Arithmetic Operations
+//===----------------------------------------------------------------------===//
+
+//def II_ABS              : InstrItinClass;
+
+def II_ADDU             : InstrItinClass;
+//def II_ADD_D            : InstrItinClass;
+def II_ADD_S            : InstrItinClass;
+
+def II_SUBU             : InstrItinClass;
+//def II_SUB_D            : InstrItinClass;
+def II_SUB_S            : InstrItinClass;
+
+//def II_MUL              : InstrItinClass;
+//def II_MUL_D            : InstrItinClass;
+//def II_MUL_S            : InstrItinClass;
+//def II_MUH              : InstrItinClass;
+//def II_MUHU             : InstrItinClass;
+//def II_MULU             : InstrItinClass;
+
+def II_MULT             : InstrItinClass;
+def II_MULTU            : InstrItinClass;
+
+def II_DIV              : InstrItinClass;
+def II_DIVU             : InstrItinClass;
+//def II_DIV_D            : InstrItinClass;
+//def II_DIV_S            : InstrItinClass;
+
+//===----------------------------------------------------------------------===//
+//  Arithmetic Immidiate Operations
+//===----------------------------------------------------------------------===//
+
+def II_ADDI             : InstrItinClass;
+def II_ADDIU            : InstrItinClass;
+//def II_ADDIUPC          : InstrItinClass;
+
+
+//===----------------------------------------------------------------------===//
+//  Logic Operations
+//===----------------------------------------------------------------------===//
+
+//def II_ALIGN            : InstrItinClass;
+
+def II_NAND             : InstrItinClass;
+def II_AND              : InstrItinClass;
+def II_NOR              : InstrItinClass;
+def II_OR               : InstrItinClass;
+def II_XOR              : InstrItinClass;
+def II_XNOR             : InstrItinClass;
+
+def II_SLL              : InstrItinClass; // Shift Left Logic
+//def II_SLLV             : InstrItinClass;
+def II_SRL              : InstrItinClass; // Shift Right Logic
+//def II_SRLV             : InstrItinClass;
+def II_SRA              : InstrItinClass; // Shift Right Arithmetic
+//def II_SRAV             : InstrItinClass;
+
+
+def II_ANDI             : InstrItinClass;
+def II_ORI              : InstrItinClass;
+def II_XORI             : InstrItinClass;
+
+def II_LD               : InstrItinClass;
+def II_LDC1             : InstrItinClass;
+def II_LDL              : InstrItinClass;
+def II_LDR              : InstrItinClass;
+def II_LDXC1            : InstrItinClass;
+
+def II_SD               : InstrItinClass;
+def II_SDC1             : InstrItinClass;
+def II_SDL              : InstrItinClass;
+def II_SDR              : InstrItinClass;
+def II_SDXC1            : InstrItinClass;
+
+def II_B                : InstrItinClass;
+def II_J                : InstrItinClass;
+def II_JR               : InstrItinClass;
+
+/*
+def II_ALUIPC           : InstrItinClass;
+def II_AUI              : InstrItinClass;
+def II_AUIPC            : InstrItinClass;
+
+//def II_B                : InstrItinClass;
+def II_BADDU            : InstrItinClass;
+def II_BBIT             : InstrItinClass; // bbit[01], bbit[01]32
+def II_BALC             : InstrItinClass;
+def II_BC               : InstrItinClass;
+def II_BC1F             : InstrItinClass;
+def II_BC1FL            : InstrItinClass;
+def II_BC1T             : InstrItinClass;
+def II_BC1TL            : InstrItinClass;
+def II_BC1CCZ           : InstrItinClass;
+def II_BCC              : InstrItinClass; // beq and bne
+def II_BCCZ             : InstrItinClass; // b[gl][et]z
+def II_BCCC             : InstrItinClass; // b<cc>c
+def II_BCCZAL           : InstrItinClass; // bgezal and bltzal
+def II_BCCZALS          : InstrItinClass; // bgezals and bltzals
+def II_BCCZC            : InstrItinClass; // beqzc, bnezc
+
+def II_BITSWAP          : InstrItinClass;
+
+def II_CEIL             : InstrItinClass;
+def II_CFC1             : InstrItinClass;
+def II_CLO              : InstrItinClass;
+def II_CLZ              : InstrItinClass;
+def II_CTC1             : InstrItinClass;
+def II_CVT              : InstrItinClass;
+def II_C_CC_D           : InstrItinClass; // Any c.<cc>.d instruction
+def II_C_CC_S           : InstrItinClass; // Any c.<cc>.s instruction
+
+def II_DADDIU           : InstrItinClass;
+def II_DADDU            : InstrItinClass;
+def II_DADD             : InstrItinClass;
+def II_DAHI             : InstrItinClass;
+def II_DATI             : InstrItinClass;
+def II_DAUI             : InstrItinClass;
+def II_DALIGN           : InstrItinClass;
+def II_DBITSWAP         : InstrItinClass;
+def II_DCLO             : InstrItinClass;
+def II_DCLZ             : InstrItinClass;
+def II_DDIV             : InstrItinClass;
+def II_DDIVU            : InstrItinClass;
+
+
+def II_DMFC1            : InstrItinClass;
+def II_DMTC1            : InstrItinClass;
+def II_DMOD             : InstrItinClass;
+def II_DMODU            : InstrItinClass;
+def II_DMUH             : InstrItinClass;
+def II_DMUHU            : InstrItinClass;
+def II_DMUL             : InstrItinClass;
+def II_DMULU            : InstrItinClass;
+def II_DMULT            : InstrItinClass;
+def II_DMULTU           : InstrItinClass;
+def II_DROTR            : InstrItinClass;
+def II_DROTR32          : InstrItinClass;
+def II_DROTRV           : InstrItinClass;
+def II_DSLL             : InstrItinClass;
+def II_DSLL32           : InstrItinClass;
+def II_DSLLV            : InstrItinClass;
+def II_DSRA             : InstrItinClass;
+def II_DSRA32           : InstrItinClass;
+def II_DSRAV            : InstrItinClass;
+def II_DSRL             : InstrItinClass;
+def II_DSRL32           : InstrItinClass;
+def II_DSRLV            : InstrItinClass;
+
+def II_DSUBU            : InstrItinClass;
+def II_DSUB             : InstrItinClass;
+
+def II_EXT              : InstrItinClass; // Any EXT instruction
+
+def II_FLOOR            : InstrItinClass;
+def II_INS              : InstrItinClass; // Any INS instruction
+
+def II_IndirectBranchPseudo : InstrItinClass; // Indirect branch pseudo.
+def II_J                : InstrItinClass;
+def II_JAL              : InstrItinClass;
+def II_JALR             : InstrItinClass;
+def II_JALRC            : InstrItinClass;
+def II_JALRS            : InstrItinClass;
+def II_JALS             : InstrItinClass;
+def II_JIC              : InstrItinClass;
+def II_JIALC            : InstrItinClass;
+
+def II_JR               : InstrItinClass;
+def II_JRADDIUSP        : InstrItinClass;
+def II_JRC              : InstrItinClass;
+
+def II_ReturnPseudo     : InstrItinClass; // Return pseudo.
+
+def II_LB               : InstrItinClass;
+def II_LBE              : InstrItinClass;
+def II_LBU              : InstrItinClass;
+def II_LBUE             : InstrItinClass;
+
+
+def II_LDPC             : InstrItinClass;
+
+def II_LH               : InstrItinClass;
+def II_LHE              : InstrItinClass;
+def II_LHU              : InstrItinClass;
+def II_LHUE             : InstrItinClass;
+
+def II_LUI              : InstrItinClass;
+
+def II_LUXC1            : InstrItinClass;
+def II_LW               : InstrItinClass;
+def II_LWE              : InstrItinClass;
+def II_LWC1             : InstrItinClass;
+def II_LWL              : InstrItinClass;
+def II_LWLE             : InstrItinClass;
+def II_LWPC             : InstrItinClass;
+def II_LWR              : InstrItinClass;
+def II_LWRE             : InstrItinClass;
+def II_LWU              : InstrItinClass;
+def II_LWUPC            : InstrItinClass;
+def II_LWXC1            : InstrItinClass;
+def II_LL               : InstrItinClass;
+def II_LLD              : InstrItinClass;
+def II_LSA              : InstrItinClass;
+def II_DLSA             : InstrItinClass;
+
+def II_MADD             : InstrItinClass;
+def II_MADDU            : InstrItinClass;
+def II_MADD_D           : InstrItinClass;
+def II_MADD_S           : InstrItinClass;
+def II_MADDF_D          : InstrItinClass;
+def II_MADDF_S          : InstrItinClass;
+
+def II_MFC1             : InstrItinClass;
+def II_MFHC1            : InstrItinClass;
+def II_MFHI_MFLO        : InstrItinClass; // mfhi and mflo
+
+def II_MOD              : InstrItinClass;
+def II_MODU             : InstrItinClass;
+
+def II_MOVF             : InstrItinClass;
+def II_MOVF_D           : InstrItinClass;
+def II_MOVF_S           : InstrItinClass;
+
+def II_MOVN             : InstrItinClass;
+def II_MOVN_D           : InstrItinClass;
+def II_MOVN_S           : InstrItinClass;
+
+def II_MOVT             : InstrItinClass;
+def II_MOVT_D           : InstrItinClass;
+def II_MOVT_S           : InstrItinClass;
+
+def II_MOVZ             : InstrItinClass;
+def II_MOVZ_D           : InstrItinClass;
+def II_MOVZ_S           : InstrItinClass;
+
+def II_MOV_D            : InstrItinClass;
+def II_MOV_S            : InstrItinClass;
+
+def II_MSUB             : InstrItinClass;
+def II_MSUBU            : InstrItinClass;
+
+def II_MSUB_D           : InstrItinClass;
+def II_MSUB_S           : InstrItinClass;
+
+def II_MSUBF_D          : InstrItinClass;
+def II_MSUBF_S          : InstrItinClass;
+
+def II_MTC1             : InstrItinClass;
+def II_MTHC1            : InstrItinClass;
+def II_MTHI_MTLO        : InstrItinClass; // mthi and mtlo
+
+
+def II_NEG              : InstrItinClass;
+def II_NMADD_D          : InstrItinClass;
+def II_NMADD_S          : InstrItinClass;
+def II_NMSUB_D          : InstrItinClass;
+def II_NMSUB_S          : InstrItinClass;
+
+def II_POP              : InstrItinClass;
+def II_RESTORE          : InstrItinClass;
+
+def II_RDHWR            : InstrItinClass;
+
+def II_ROTR             : InstrItinClass;
+def II_ROTRV            : InstrItinClass;
+
+def II_ROUND            : InstrItinClass;
+def II_SAVE             : InstrItinClass;
+def II_SC               : InstrItinClass;
+def II_SCD              : InstrItinClass;
+def II_SB               : InstrItinClass;
+def II_SBE              : InstrItinClass;
+
+
+def II_SEB              : InstrItinClass;
+def II_SEH              : InstrItinClass;
+def II_SELCCZ           : InstrItinClass;
+def II_SEQ_SNE          : InstrItinClass; // seq and sne
+def II_SEQI_SNEI        : InstrItinClass; // seqi and snei
+
+def II_SH               : InstrItinClass;
+def II_SHE              : InstrItinClass;
+
+
+def II_SLTI_SLTIU       : InstrItinClass; // slti and sltiu
+def II_SLT_SLTU         : InstrItinClass; // slt and sltu
+
+def II_SQRT_D           : InstrItinClass;
+def II_SQRT_S           : InstrItinClass;
+
+
+def II_SUXC1            : InstrItinClass;
+def II_SW               : InstrItinClass;
+def II_SWE              : InstrItinClass;
+def II_SWC1             : InstrItinClass;
+def II_SWL              : InstrItinClass;
+def II_SWLE             : InstrItinClass;
+def II_SWR              : InstrItinClass;
+def II_SWRE             : InstrItinClass;
+def II_SWXC1            : InstrItinClass;
+def II_TRUNC            : InstrItinClass;
+def II_WSBH             : InstrItinClass;
+*/
+
+//===----------------------------------------------------------------------===//
+// Basic CPU Generic instruction itineraries.
+//===----------------------------------------------------------------------===//
+def BasicCPUGenericItineraries : ProcessorItineraries<[ALU, LSU], [], [
+  InstrItinData<II_ADDU           , [InstrStage<1,  [ALU]>]>,
+  InstrItinData<II_ADD_S          , [InstrStage<1,  [ALU]>]>,
+
+  InstrItinData<II_SUBU           , [InstrStage<1,  [ALU]>]>,
+  InstrItinData<II_SUB_S          , [InstrStage<1,  [ALU]>]>,
+
+  InstrItinData<II_AND            , [InstrStage<1,  [ALU]>]>,
+  InstrItinData<II_NAND           , [InstrStage<1,  [ALU]>]>,
+  InstrItinData<II_OR             , [InstrStage<1,  [ALU]>]>,
+  InstrItinData<II_NOR            , [InstrStage<1,  [ALU]>]>,
+  InstrItinData<II_XOR            , [InstrStage<1,  [ALU]>]>,
+  InstrItinData<II_XNOR           , [InstrStage<1,  [ALU]>]>,
+
+  InstrItinData<II_SLL            , [InstrStage<1,  [ALU]>]>,
+  InstrItinData<II_SRL            , [InstrStage<1,  [ALU]>]>,
+  InstrItinData<II_SRA            , [InstrStage<1,  [ALU]>]>,
+
+  InstrItinData<II_SD             , [InstrStage<1,  [LSU]>]>,
+  InstrItinData<II_LD             , [InstrStage<1,  [LSU]>]>
+
+]>;
+
+def BasicCPUInstrInfo : InstrInfo{
+
+}
+
+//===----------------------------------------------------------------------===//
+// Declare the target which we are implementing
+//===----------------------------------------------------------------------===//
+
+def BasicCPUAsmWriter : AsmWriter {
+  string AsmWriterClassName  = "InstPrinter";
+  int PassSubtarget = 1;
+  int Variant = 0;
+}
+
+def BasicCPUAsmParser : AsmParser {
+  let ShouldEmitMatchRegisterName = 0;
+}
+
+def BasicCPUAsmParserVariant : AsmParserVariant {
+  int Variant = 0;
+
+  // Recognize hard coded registers.
+  string RegisterPrefix = "$";
+}
+
+def BasicCPU : Target {
+  // Pull in Instruction Info:
+  let InstructionSet = BasicCPUInstrInfo;
+
+  let AssemblyParsers  = [BasicCPUAsmParser];
+  let AssemblyParserVariants = [BasicCPUAsmParserVariant];
+
+  let AssemblyWriters = [BasicCPUAsmWriter];
+}
